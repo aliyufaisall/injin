@@ -100,4 +100,5 @@ def pipeline_generate_dataset(num_samples: int = 1000, output_path: str = "sacch
     return df
 
 if __name__ == "__main__":
-    dataset = pipeline_generate_dataset(num_samples=1000)
+    dataset = pipeline_generate_dataset(num_samples=5000)
+    
