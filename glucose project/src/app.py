@@ -5,7 +5,6 @@ import joblib
 import pandas as pd
 import streamlit as st
 
-
 # =====================================================================
 # 1. Environment and Path Setup
 # =====================================================================
@@ -18,12 +17,11 @@ if str(root_dir) not in sys.path:
 
 @st.cache_resource
 def load_model():
-    model_path = root_dir / "models" / "xgboost_production_model.joblib"
+    model_path = root_dir / "models" /"xgboost_production_model.joblib"
     return joblib.load(model_path)
 
 
 model = load_model()
-
 
 # =====================================================================
 # 2. Main Title Layout
@@ -32,9 +30,8 @@ st.title("Glucose Yield Predictor")
 
 st.write(
     "Estimate glucose yield from starch saccharification "
-    "process parameters."
+    "process parameters and calculate batch production cost."
 )
-
 
 # =====================================================================
 # 3. User Input Form
@@ -47,6 +44,55 @@ with st.form("saccharification_form"):
         "Adjust the parameters below to match your "
         "saccharification batch conditions."
     )
+
+    # --- Production Economics and Costs ---
+    st.markdown("### Production Economics and Costs")
+
+    col9, col10 = st.columns(2)
+
+    with col9:
+        substrate_volume = st.number_input(
+            "Substrate Volume (L)",
+            min_value=1.0,
+            value=1000.0,
+            step=50.0,
+        )
+
+        enzyme_price = st.number_input(
+            "Enzyme Price (₦/g)",
+            min_value=0.0,
+            value=500.0,
+            step=10.0,
+        )
+
+        water_price = st.number_input(
+            "Water Cost (₦/L)",
+            min_value=0.0,
+            value=5.0,
+            step=0.5,
+        )
+
+    with col10:
+        energy_used = st.number_input(
+            "Energy Consumed (kWh)",
+            min_value=0.0,
+            value=120.0,
+            step=5.0,
+        )
+
+        energy_price = st.number_input(
+            "Electricity / Fuel Price (₦/kWh)",
+            min_value=0.0,
+            value=110.0,
+            step=5.0,
+        )
+
+        labour_cost = st.number_input(
+            "Labour Cost per Batch (₦)",
+            min_value=0.0,
+            value=25000.0,
+            step=500.0,
+        )
 
     # --- Initial Substrate Characteristics ---
     st.markdown("### Initial Substrate Characteristics")
@@ -105,7 +151,7 @@ with st.form("saccharification_form"):
             step=0.1,
         )
 
-    # --- Enzyme Parameters ---
+    # --- Enzymatic Treatment ---
     st.markdown("### Enzymatic Treatment")
 
     col5, col6 = st.columns(2)
@@ -153,7 +199,6 @@ with st.form("saccharification_form"):
         use_container_width=True,
     )
 
-
 # =====================================================================
 # 4. Construct Input DataFrame
 # =====================================================================
@@ -167,9 +212,7 @@ features_dict = {
     "saccharification_temp_C": [
         saccharification_temp
     ],
-    "pH": [
-        process_ph
-    ],
+    "pH": [process_ph],
     "glucoamylase_activity_U_g": [
         glucoamylase_activity
     ],
@@ -185,16 +228,13 @@ features_dict = {
     "initial_glucose_concentration_g_L": [
         initial_glucose_concentration
     ],
-    "mixing_rate_rpm": [
-        mixing_rate
-    ],
+    "mixing_rate_rpm": [mixing_rate],
 }
 
 input_df = pd.DataFrame(features_dict)
 
-
 # =====================================================================
-# 5. Prediction Execution
+# 5. Prediction and Production Cost Calculation
 # =====================================================================
 if submitted:
 
@@ -202,12 +242,59 @@ if submitted:
         prediction = model.predict(input_df)
         final_value = float(prediction[0])
 
+        # --- Estimate Material Requirements ---
+        total_water_liters = substrate_volume * water_to_substrate_ratio
+
+        # Convert starch concentration to kg for the specified volume.
+        starch_mass_kg = (
+            initial_starch_concentration * substrate_volume / 1000
+        )
+
+        # Enzyme dosage is expressed in g per kg of substrate.
+        enzyme_mass_g = glucoamylase_dosage * starch_mass_kg
+
+        # --- Calculate Individual Costs ---
+        cost_enzymes = enzyme_mass_g * enzyme_price
+        cost_water = total_water_liters * water_price
+        cost_energy = energy_used * energy_price
+
+        total_production_cost = (
+            cost_enzymes
+            + cost_water
+            + cost_energy
+            + labour_cost
+        )
+
+        # --- Display Glucose Yield ---
         st.success("Prediction Complete!")
 
         st.metric(
             label="Predicted Glucose Yield",
             value=f"{final_value:.2f} g/L",
         )
+
+        # --- Display Production Cost ---
+        st.markdown("---")
+        st.subheader("Saccharification Batch Cost")
+
+        st.metric(
+            label="Total Batch Production Cost",
+            value=f"₦{total_production_cost:,.2f}",
+        )
+
+        with st.expander("View Cost Breakdown"):
+            st.write(
+                f"**Enzyme Cost:** ₦{cost_enzymes:,.2f}"
+            )
+            st.write(
+                f"**Water Cost:** ₦{cost_water:,.2f}"
+            )
+            st.write(
+                f"**Energy Cost:** ₦{cost_energy:,.2f}"
+            )
+            st.write(
+                f"**Labour Cost:** ₦{labour_cost:,.2f}"
+            )
 
     except Exception as error:
         st.error(f"Prediction failed: {error}")

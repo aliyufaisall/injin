@@ -169,5 +169,19 @@ if submitted:
     with m_col2:
         st.metric(label="Total Batch Cost", value=f"₦{total_production_cost:,.2f}")
 
+    with st.expander("View Cost Breakdown"):
+        st.write(
+            f"**Enzyme Cost:** ₦{cost_enzymes:,.2f}"
+        )
+        st.write(
+            f"**Water Cost:** ₦{cost_water:,.2f}"
+        )
+        st.write(
+            f"**Energy Cost:** ₦{cost_energy:,.2f}"
+        )
+        st.write(
+            f"**Labour Cost:** ₦{labour_cost:,.2f}"
+        )
+
         
 
