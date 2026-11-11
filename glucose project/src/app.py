@@ -5,6 +5,7 @@ import joblib
 import pandas as pd
 import streamlit as st
 
+
 # =====================================================================
 # 1. Environment and Path Setup
 # =====================================================================
@@ -13,6 +14,8 @@ root_dir = current_dir.parent
 
 if str(root_dir) not in sys.path:
     sys.path.insert(0, str(root_dir))
+
+from src.optimizer import calculate_batch_economics, optimize_batch_setpoints
 
 
 @st.cache_resource
@@ -71,6 +74,14 @@ with st.form("saccharification_form"):
             value=5.0,
             step=0.5,
         )
+
+        glucose_price_per_kg = st.number_input(
+            "Target Glucose Value / Selling Price (₦/kg)",
+            min_value=1.0,
+            value=1200.0,
+            step=50.0,
+        )
+
 
     with col10:
         energy_used = st.number_input(
@@ -193,11 +204,22 @@ with st.form("saccharification_form"):
             step=10.0,
         )
 
-    submitted = st.form_submit_button(
-        "Predict Glucose Yield",
-        type="primary",
-        use_container_width=True,
-    )
+
+    btn_col1, btn_col2 = st.columns(2)
+
+    with btn_col1:
+        submitted = st.form_submit_button(
+            "Predict Glucose Yield",
+            use_container_width=True,
+        )
+
+    with btn_col2:
+        optimize_clicked = st.form_submit_button(
+            "Auto-Optimize for Max Profit",
+            type="primary",
+            use_container_width=True,
+        )
+
 
 # =====================================================================
 # 4. Construct Input DataFrame
@@ -298,4 +320,84 @@ if submitted:
 
     except Exception as error:
         st.error(f"Prediction failed: {error}")
+
+
+if optimize_clicked:
+    try:
+        with st.spinner("Finding optimal factory setpoints..."):
+            # 1. Pack the 4 fixed batch inputs
+            fixed_features = {
+                "initial_starch_concentration_g_L": initial_starch_concentration,
+                "initial_dextrin_avg_dp": initial_dextrin_avg_dp,
+                "glucoamylase_activity_U_g": glucoamylase_activity,
+                "initial_glucose_concentration_g_L": initial_glucose_concentration,
+            }
+
+            # 2. Pack the economic & energy inputs
+            economics_inputs = {
+                "substrate_volume": substrate_volume,
+                "baseline_duration_h": saccharification_duration,
+                "baseline_energy_kwh": energy_used,
+                "enzyme_price": enzyme_price,
+                "water_price": water_price,
+                "energy_price": energy_price,
+                "labour_cost": labour_cost,
+                "glucose_price_per_kg": glucose_price_per_kg,
+            }
+
+            # 3. Call your optimizer module
+            opt_result = optimize_batch_setpoints(
+                model=model,
+                fixed_features=fixed_features,
+                economics=economics_inputs,
+            )
+
+        # 4. Unpack the results
+        sp = opt_result["setpoints"]
+        opt_yield = opt_result["predicted_yield_g_L"]
+        opt_econ = opt_result["economics"]
+
+        st.success("Optimization Complete!")
+
+        # Display top KPI metrics
+        k1, k2, k3 = st.columns(3)
+        k1.metric("Optimized Yield", f"{opt_yield:.2f} g/L")
+        k2.metric("Optimized Batch Cost", f"₦{opt_econ['total_cost']:,.2f}")
+        k3.metric("Maximum Net Profit", f"₦{opt_econ['net_profit']:,.2f}")
+
+        # Display the side-by-side comparison table
+        st.subheader("Recommended Setpoints vs. Current Input")
+        comparison_df = pd.DataFrame(
+            {
+                "Parameter": [
+                    "Saccharification Temperature (°C)",
+                    "pH",
+                    "Glucoamylase Dosage (g/kg)",
+                    "Saccharification Duration (Hours)",
+                    "Water-to-Substrate Ratio",
+                    "Mixing Rate (RPM)",
+                ],
+                "Your Input": [
+                    saccharification_temp,
+                    process_ph,
+                    glucoamylase_dosage,
+                    saccharification_duration,
+                    water_to_substrate_ratio,
+                    mixing_rate,
+                ],
+                "AI Recommended": [
+                    sp["saccharification_temp_C"],
+                    sp["pH"],
+                    sp["glucoamylase_dosage_g_kg"],
+                    sp["saccharification_duration_h"],
+                    sp["water_to_substrate_ratio"],
+                    sp["mixing_rate_rpm"],
+                ],
+            }
+        )
+        st.table(comparison_df)
+
+    except Exception as error:
+        st.error(f"Optimization failed: {error}")
+
 

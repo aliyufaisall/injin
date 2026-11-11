@@ -1,0 +1,22 @@
+artifact_path: file:C:/Users/HP/Documents/engine/glucose project/mlruns/1/models/m-01b82483db0a46fea5b0b5420de359b0/artifacts
+flavors:
+  python_function:
+    data: model.ubj
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.xgboost
+    python_version: 3.12.7
+  xgboost:
+    code: null
+    data: model.ubj
+    model_class: xgboost.sklearn.XGBRegressor
+    model_format: ubj
+    xgb_version: 3.4.1
+mlflow_version: 3.17.1
+model_id: m-01b82483db0a46fea5b0b5420de359b0
+model_size_bytes: 1667307
+model_uuid: m-01b82483db0a46fea5b0b5420de359b0
+prompts: null
+run_id: b26a8d797f944ca187de4993dbd36043
+utc_time_created: '2026-11-03 12:53:22.279901'

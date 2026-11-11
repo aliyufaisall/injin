@@ -1,0 +1,22 @@
+artifact_path: file:C:/Users/HP/Documents/engine/mlruns/1/models/m-e6e915d8737a45debbefd4d152106fea/artifacts
+flavors:
+  python_function:
+    data: model.ubj
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.xgboost
+    python_version: 3.12.7
+  xgboost:
+    code: null
+    data: model.ubj
+    model_class: xgboost.sklearn.XGBRegressor
+    model_format: ubj
+    xgb_version: 3.4.1
+mlflow_version: 3.17.1
+model_id: m-e6e915d8737a45debbefd4d152106fea
+model_size_bytes: 1667307
+model_uuid: m-e6e915d8737a45debbefd4d152106fea
+prompts: null
+run_id: 99054972aa084426b9cbef21b4f399a6
+utc_time_created: '2026-11-03 11:10:38.945721'
