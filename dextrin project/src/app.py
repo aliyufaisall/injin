@@ -4,6 +4,7 @@ import joblib
 import pandas as pd
 import streamlit as st
 from sklearn.base import BaseEstimator, TransformerMixin
+import traceback
 
 # =====================================================================
 # Custom feature engineering pipeline 
@@ -296,6 +297,7 @@ if optimize_clicked:
 
     except Exception as error:
         st.error(f"Optimization failed: {error}")
+        st.code(traceback.format_exc())
 
         
 
