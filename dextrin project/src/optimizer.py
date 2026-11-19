@@ -49,8 +49,6 @@ def calculate_dextrin_economics(
 
     # 3. Output Mass, Revenue & Net Profit
     dextrin_produced_kg = batch_weight_kg * (predicted_yield_pct / 100.0)
-    revenue = dextrin_produced_kg * dextrin_price_per_kg
-    net_profit = revenue - total_cost
 
     return {
         "scaled_energy_kwh": scaled_energy_kwh,
@@ -60,8 +58,6 @@ def calculate_dextrin_economics(
         "cost_energy": cost_energy,
         "total_cost": total_cost,
         "dextrin_produced_kg": dextrin_produced_kg,
-        "revenue": revenue,
-        "net_profit": net_profit,
     }
 
 # =====================================================================
@@ -306,5 +302,4 @@ if __name__ == "__main__":
     print(f"Dextrin Output Mass:     {output['economics']['dextrin_produced_kg']:,.1f} kg")
     print(f"Scaled Energy Used:      {output['economics']['scaled_energy_kwh']:.1f} kWh")
     print(f"Total Batch Cost:        ₦{output['economics']['total_cost']:,.2f}")
-    print(f"Estimated Revenue:       ₦{output['economics']['revenue']:,.2f}")
-    print(f"Maximum Net Profit:      ₦{output['economics']['net_profit']:,.2f}")
+    
