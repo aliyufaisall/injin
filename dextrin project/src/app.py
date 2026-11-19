@@ -45,6 +45,9 @@ root_dir = current_dir.parent
 if str(root_dir) not in sys.path:
     sys.path.insert(0, str(root_dir))
 
+from src.optimizer import optimize_dextrin_setpoints
+
+
 @st.cache_resource
 def load_model():
     model_path = root_dir / "models" / "production_pipeline.joblib"
@@ -66,6 +69,14 @@ with st.form("processing_form"):
         batch_weight = st.number_input("Cassava Batch Weight (kg)", min_value=1.0, value=1000.0, step=50.0)
         cassava_price = st.number_input("Cassava Purchase Price (₦/kg)", min_value=0.0, value=150.0, step=5.0)
         enzyme_price = st.number_input("Enzyme Price (₦/g or ₦/mL)", min_value=0.0, value=500.0, step=10.0)
+
+        max_batch_budget = st.number_input(
+            "Maximum Batch Budget (₦)",
+            min_value=1000.0,
+            value=250000.0,
+            step=5000.0,
+        )
+
     with col10:
         water_price = st.number_input("Water Cost (₦/L)", min_value=0.0, value=5.0, step=0.5)
         energy_used = st.number_input("Energy Consumed (kWh)", min_value=0.0, value=120.0, step=5.0)
@@ -111,8 +122,22 @@ with st.form("processing_form"):
         liquefaction_duration = st.slider("Liquefaction Duration (Min)", 10, 240, 90, 1)
 
     # Submit button 
-    st.markdown("<br>", unsafe_allow_html=True) 
-    submitted = st.form_submit_button("Calculate Yield Prediction", type="primary", use_container_width=True)
+    st.markdown("<br>", unsafe_allow_html=True)
+    btn_col1, btn_col2 = st.columns(2)
+
+    with btn_col1:
+        submitted = st.form_submit_button(
+            "Calculate Yield Prediction",
+            use_container_width=True,
+        )
+
+    with btn_col2:
+        optimize_clicked = st.form_submit_button(
+            "Auto-Optimize for Max Profit",
+            type="primary",
+            use_container_width=True,
+        )
+
 
 # 4. Construct DataFrame matching column criteria
 features_dict = {
@@ -182,6 +207,95 @@ if submitted:
         st.write(
             f"**Labour Cost:** ₦{labour_cost:,.2f}"
         )
+if optimize_clicked:
+    try:
+        with st.spinner("Finding highest dextrin yield within your batch budget..."):
+            # 1. Pack the 6 fixed raw material & storage inputs
+            fixed_features = {
+                "Cassava Starch Content (%)": starch_content,
+                "Cassava Moisture Content (%)": moisture_content,
+                "Raw Material Storage Duration (Days)": storage_duration,
+                "Storage Temperature (°C)": storage_temp,
+                "Storage Humidity (%)": storage_humidity,
+                "Alpha-Amylase Activity (U/g)": enzyme_activity,
+            }
+
+            # 2. Pack the cost & budget inputs
+            economics_inputs = {
+                "batch_weight_kg": batch_weight,
+                "cassava_price_per_kg": cassava_price,
+                "enzyme_price": enzyme_price,
+                "water_price": water_price,
+                "baseline_process_min": cooking_duration + liquefaction_duration,
+                "baseline_energy_kwh": energy_used,
+                "energy_price": energy_price,
+                "labour_cost": labour_cost,
+                "max_batch_budget": max_batch_budget,
+            }
+
+            # 3. Call your optimizer
+            opt_result = optimize_dextrin_setpoints(
+                model=model,
+                fixed_features=fixed_features,
+                economics=economics_inputs,
+            )
+
+        # 4. Unpack results
+        sp = opt_result["setpoints"]
+        opt_yield = opt_result["predicted_yield_pct"]
+        opt_econ = opt_result["economics"]
+
+        if opt_econ["total_cost"] > max_batch_budget:
+            st.warning(
+                f"Note: Fixed raw material & labour costs already exceed ₦{max_batch_budget:,.2f}. "
+                "Showing the lowest-cost recipe possible."
+            )
+        else:
+            st.success("Optimization Complete! Maximum Yield Within Budget Found.")
+
+        # Top KPI Metrics
+        k1, k2, k3 = st.columns(3)
+        k1.metric("Optimized Dextrin Yield", f"{opt_yield:.2f}%")
+        k2.metric("Dextrin Output Mass", f"{opt_econ['dextrin_produced_kg']:,.1f} kg")
+        k3.metric("Optimized Batch Cost", f"₦{opt_econ['total_cost']:,.2f}")
+
+        # Side-by-Side Comparison Table
+        st.subheader("Recommended Setpoints vs. Current Input")
+        comparison_df = pd.DataFrame(
+            {
+                "Parameter": [
+                    "Cooking Temperature (°C)",
+                    "Water-to-Cassava Ratio",
+                    "Cooking Duration (Min)",
+                    "Alpha-Amylase Dosage (g/mL)",
+                    "Liquefaction Temperature (°C)",
+                    "Liquefaction Duration (Min)",
+                    "pH During Enzymatic Treatment",
+                ],
+                "Your Input": [
+                    cooking_temp,
+                    water_ratio,
+                    cooking_duration,
+                    enzyme_dosage,
+                    liquefaction_temp,
+                    liquefaction_duration,
+                    process_ph,
+                ],
+                "AI Recommended": [
+                    sp["Cooking Temperature (°C)"],
+                    sp["Water-to-Cassava Ratio"],
+                    sp["Cooking Duration (Min)"],
+                    sp["Alpha-Amylase Dosage (g/mL)"],
+                    sp["Liquefaction Temperature (°C)"],
+                    sp["Liquefaction Duration (Min)"],
+                    sp["pH During Enzymatic Treatment"],
+                ],
+            }
+        )
+        st.table(comparison_df)
+
+    except Exception as error:
+        st.error(f"Optimization failed: {error}")
 
         
 
