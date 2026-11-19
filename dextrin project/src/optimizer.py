@@ -20,7 +20,6 @@ def calculate_dextrin_economics(
     baseline_energy_kwh: float,
     energy_price: float,
     labour_cost: float,
-    dextrin_price_per_kg: float,
 ) -> dict:
     """Calculates costs, revenue, and net profit (₦) for a dextrin batch."""
 
